@@ -6,6 +6,7 @@ gc.collect()
 
 key = Pin(0,Pin.IN, Pin.PULL_UP) # reset taster
 led = Pin(15,Pin.OUT) # on-board led
+interrupt_pin = Pin(40, Pin.IN, Pin.PULL_UP) # intrrupt pin
 
 # MPU adresa
 ADDRESS = 0x68
@@ -55,6 +56,8 @@ GYRO_ZOUT1 = 0x48
 CONFIG = 0x1A
 GYRO_CONFIG = 0x1B
 ACCEL_CONFIG = 0x1C
+INT_ENABLE = 0x38
+INT_STATUS = 0x3A
 
 
 i2c = SoftI2C(scl=Pin(36), sda=Pin(38), freq=400000)
@@ -63,20 +66,30 @@ i2c.writeto(ADDRESS, bytearray([PWR_MGMT_1, 0x00]))
 i2c.writeto(ADDRESS, bytearray([ACCEL_CONFIG, ACCEL_RANGE_2G]))
 i2c.writeto(ADDRESS, bytearray([GYRO_CONFIG, GYRO_RANGE_250DEG]))
 i2c.writeto(ADDRESS, bytearray([CONFIG, 0x00]))
+i2c.writeto(ADDRESS, bytearray([INT_ENABLE, 0x01]))
 i2c.stop()
+
+handle_interrupts = True
+
+def handle_interrupt(pin):
+    global handle_interrupts
+    if handle_interrupts:
+        i2c.start()
+        raw = i2c.readfrom_mem(ADDRESS, ACCEL_XOUT0, 14)
+        i2c.stop()
+        print(raw)
+
+interrupt_pin.irq(trigger=Pin.IRQ_FALLING, handler=handle_interrupt)
 
 loop = True
 led.value(1)
 
-while loop:
+try:    
+    while loop:
+        if key.value() == 0:
+            handle_interrupts = False  # Stop handling interrupts
+            interrupt_pin.irq(handler=None)  # Detach the interrupt handler
+            loop = False
 
-    i2c.start()
-    raw = i2c.readfrom_mem(ADDRESS, ACCEL_XOUT0, 14)
-    i2c.stop()
-    
-    print(raw)
-    
-    if key.value() == 0:
-        loop = False
-
-led.value(0)
+finally:
+    led.value(0)
