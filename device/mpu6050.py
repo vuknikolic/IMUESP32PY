@@ -1,4 +1,5 @@
 from machine import Pin, SoftI2C
+import micropython, gc
 
 class MPU:
     ADDRESS = 0x68
@@ -30,7 +31,7 @@ class MPU:
         self.i2c.writeto(self.ADDRESS, bytearray([self.GYRO_CONFIG, self.GYRO_RANGE_250DEG]))
         self.i2c.writeto(self.ADDRESS, bytearray([self.CONFIG, 0x00]))  
         self.i2c.writeto(self.ADDRESS, bytearray([self.INT_ENABLE, 0x01]))  
-        self.i2c.writeto(self.ADDRESS, bytearray([self.SMPLRT_DIV, 0x07]))  
+        self.i2c.writeto(self.ADDRESS, bytearray([self.SMPLRT_DIV, 0x07])) # Frekvencija uzorkovanja = 1 kHz / (1 + SMPLRT_DIV) = 1 kHz / 8 = 125 Hz
         self.i2c.writeto(self.ADDRESS, bytearray([self.INT_PIN_CFG, 0x10])) 
         self.i2c.stop()
 
@@ -39,5 +40,8 @@ class MPU:
         self.i2c.stop()
 
     def handle_interrupt(self, pin):
+        micropython.alloc_emergency_exception_buf(100)  # Omogući hitne izuzetke
+        gc.disable()  # Onemogući GC tokom prekida
         raw = self.i2c.readfrom_mem(self.ADDRESS, self.ACCEL_XOUT0, 14)
         self.interrupt_handler(raw)
+        gc.enable()  # Ponovo omogući GC
