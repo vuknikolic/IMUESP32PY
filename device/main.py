@@ -1,95 +1,30 @@
-import micropython, esp, gc 
-from machine import Pin, SoftI2C
+import micropython, esp, gc, time
+from machine import Pin
+from mpu6050 import MPU
 
 esp.osdebug(None)
 gc.collect()
 
-key = Pin(0,Pin.IN, Pin.PULL_UP) # reset taster
-led = Pin(15,Pin.OUT) # on-board led
-interrupt_pin = Pin(40, Pin.IN, Pin.PULL_UP) # intrrupt pin
+raw_data = None
 
-# MPU adresa
-ADDRESS = 0x68
-    
-# Scale Modifiers
-ACCEL_SCALE_MODIFIER_2G = 16384.0
-ACCEL_SCALE_MODIFIER_4G = 8192.0
-ACCEL_SCALE_MODIFIER_8G = 4096.0
-ACCEL_SCALE_MODIFIER_16G = 2048.0
- 
-GYRO_SCALE_MODIFIER_250DEG = 131.0
-GYRO_SCALE_MODIFIER_500DEG = 65.5
-GYRO_SCALE_MODIFIER_1000DEG = 32.8
-GYRO_SCALE_MODIFIER_2000DEG = 16.4
+key = Pin(0, Pin.IN, Pin.PULL_UP)  	# Reset button
+led = Pin(15, Pin.OUT)  			# On-board LED
 
-# Pre-defined ranges
-ACCEL_RANGE_2G = 0x00
-ACCEL_RANGE_4G = 0x08
-ACCEL_RANGE_8G = 0x10
-ACCEL_RANGE_16G = 0x18
+def process_interrupt(raw):
+    global send_data_flag, raw_data
+    raw_data = raw
 
-GYRO_RANGE_250DEG = 0x00
-GYRO_RANGE_500DEG = 0x08
-GYRO_RANGE_1000DEG = 0x10
-GYRO_RANGE_2000DEG = 0x18
+mpu = MPU(scl_pin=36, sda_pin=38, interrupt_pin=40, interrupt_handler=process_interrupt)
 
-# MPU6050 registri
-PWR_MGMT_1 = 0x6B
-PWR_MGMT_2 = 0x6C
-  
-# raw data 14 bajtova nema potrebe da se uzima pojedinacno iz svakog registra
-ACCEL_XOUT0 = 0x3B
-ACCEL_XOUT1 = 0x3C
-ACCEL_YOUT0 = 0x3D
-ACCEL_YOUT1 = 0x3E
-ACCEL_ZOUT0 = 0x3F
-ACCEL_ZOUT1 = 0x40
-TEMP_OUT0 = 0x41
-TEMP_OUT1 = 0x42
-GYRO_XOUT0 = 0x43
-GYRO_XOUT1 = 0x44
-GYRO_YOUT0 = 0x45
-GYRO_YOUT1 = 0x46
-GYRO_ZOUT0 = 0x47
-GYRO_ZOUT1 = 0x48
+try:
+    led.value(1)
+    prev_time = time.ticks_us()
+    while True:
 
-CONFIG = 0x1A
-GYRO_CONFIG = 0x1B
-ACCEL_CONFIG = 0x1C
-INT_ENABLE = 0x38
-INT_STATUS = 0x3A
+        sys.stdout.write("1000Hz data\n")
 
-
-i2c = SoftI2C(scl=Pin(36), sda=Pin(38), freq=400000)
-i2c.start()
-i2c.writeto(ADDRESS, bytearray([PWR_MGMT_1, 0x00]))
-i2c.writeto(ADDRESS, bytearray([ACCEL_CONFIG, ACCEL_RANGE_2G]))
-i2c.writeto(ADDRESS, bytearray([GYRO_CONFIG, GYRO_RANGE_250DEG]))
-i2c.writeto(ADDRESS, bytearray([CONFIG, 0x00]))
-i2c.writeto(ADDRESS, bytearray([INT_ENABLE, 0x01]))
-i2c.stop()
-
-handle_interrupts = True
-
-def handle_interrupt(pin):
-    global handle_interrupts
-    if handle_interrupts:
-        i2c.start()
-        raw = i2c.readfrom_mem(ADDRESS, ACCEL_XOUT0, 14)
-        i2c.stop()
-        print(raw)
-
-interrupt_pin.irq(trigger=Pin.IRQ_FALLING, handler=handle_interrupt)
-
-loop = True
-led.value(1)
-
-try:    
-    while loop:
         if key.value() == 0:
-            handle_interrupts = False  # Stop handling interrupts
-            interrupt_pin.irq(handler=None)  # Detach the interrupt handler
-            loop = False
-
+            mpu.deinitialize()
+            break
 finally:
     led.value(0)
