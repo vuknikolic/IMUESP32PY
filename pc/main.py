@@ -5,6 +5,7 @@ BAUD_RATE = 115200
 
 SYNC_BYTE = b'\xAA'
 
+
 def main():
     try:
         ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
@@ -16,18 +17,25 @@ def main():
             if raw_data:
                 buffer.extend(raw_data)
 
-                while True:
+                while SYNC_BYTE in buffer:
                     sync_index = buffer.find(SYNC_BYTE)
-                    if sync_index == -1:
-                        break  # nije bilo SYNC-a
 
-                    if sync_index + 1 < len(buffer):  # ima li dovoljno bajtova
-                        packet = buffer[sync_index + 1:]  # sve posle SYNC-a
+                    # odbaci bajtove pre SYNC-a
+                    if sync_index > 0: 
+                        buffer = buffer[sync_index:]
+
+                    # da li imamo jos jedan SYNC na za kraj
+                    next_sync_index = buffer.find(SYNC_BYTE, sync_index + 1)
+
+                    if next_sync_index != -1:
+                        # ceo paket izmedju dva SYNC-a
+                        packet = buffer[sync_index + 1:next_sync_index]
                         print("Received raw data (hex):", packet.hex())
 
-                        buffer = buffer[sync_index + 1 + len(packet):]  # odbaci obradjne bajtove
-
+                        # odbaci obradjne bajtove
+                        buffer = buffer[next_sync_index:]
                     else:
+                        # nema ceo paket, cekaj
                         break
 
     except serial.SerialException as e:
