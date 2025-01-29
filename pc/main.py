@@ -4,7 +4,7 @@ SERIAL_PORT = '/dev/tty.usbmodem14201'
 BAUD_RATE = 115200
 
 SYNC_BYTE = b'\xAA'
-
+RAW_DATA_LENGTH = 14
 
 def main():
     try:
@@ -17,26 +17,22 @@ def main():
             if raw_data:
                 buffer.extend(raw_data)
 
-                while SYNC_BYTE in buffer:
+                while True:
                     sync_index = buffer.find(SYNC_BYTE)
 
-                    # odbaci bajtove pre SYNC-a
-                    if sync_index > 0: 
-                        buffer = buffer[sync_index:]
+                    if sync_index == -1:  
+                        break  # nije bilo SYNC-a, cekaj
 
-                    # da li imamo jos jedan SYNC na za kraj
-                    next_sync_index = buffer.find(SYNC_BYTE, sync_index + 1)
-
-                    if next_sync_index != -1:
-                        # ceo paket izmedju dva SYNC-a
-                        packet = buffer[sync_index + 1:next_sync_index]
+                    if len(buffer) >= sync_index + 1 + RAW_DATA_LENGTH:
+                        # ima dovoljno za ceopaket (SYNC_BYTE + 14 bajtova)
+                        packet = buffer[sync_index + 1 : sync_index + 1 + RAW_DATA_LENGTH]
+                        
                         print("Received raw data (hex):", packet.hex())
 
                         # odbaci obradjne bajtove
-                        buffer = buffer[next_sync_index:]
+                        buffer = buffer[sync_index + 1 + RAW_DATA_LENGTH:]
                     else:
-                        # nema ceo paket, cekaj
-                        break
+                        break  # nema ceo paket, cekaj
 
     except serial.SerialException as e:
         print(f"Error opening serial port: {e}")
