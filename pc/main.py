@@ -16,17 +16,19 @@ def main():
             if raw_data:
                 buffer.extend(raw_data)
 
-                while len(buffer) > 0:
+                while True:
                     sync_index = buffer.find(SYNC_BYTE)
                     if sync_index == -1:
                         break  # nije bilo SYNC-a
 
-                    if len(buffer) >= sync_index + 1 + len(raw_data):  # prilagodi duzinu raw_data
-                        packet = buffer[sync_index:sync_index + 1 + len(raw_data)]
-                        buffer = buffer[sync_index + 1 + len(raw_data):]  # ukloni obradjene bajtove
+                    if sync_index + 1 < len(buffer):  # ima li dovoljno bajtova
+                        packet = buffer[sync_index + 1:]  # sve posle SYNC-a
+                        print("Received raw data (hex):", packet.hex())
 
-                        raw_data = packet[1:]  # preskoci SYNC bajt
-                        print("Received raw data (hex):", raw_data.hex())
+                        buffer = buffer[sync_index + 1 + len(packet):]  # odbaci obradjne bajtove
+
+                    else:
+                        break
 
     except serial.SerialException as e:
         print(f"Error opening serial port: {e}")
