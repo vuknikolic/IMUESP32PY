@@ -9,9 +9,12 @@ class SerialReceiver:
         self.sync_byte = sync_byte
         self.raw_data_length = raw_data_length
         self.ser = None
-        self.buffer = bytearray()
+        # Staticki alociran bafer od 100 bajtova
+        self.capacity = 100
+        self.buffer = bytearray(self.capacity)
+        self.buf_len = 0  # Trenutni broj bajtova u baferu
         self.packet_callback = None
-        self._running = False  # Flag za kontrolu petlje
+        self._running = False
 
     def set_packet_callback(self, callback: Callable[[bytes], None]):
         self.packet_callback = callback
@@ -37,22 +40,39 @@ class SerialReceiver:
         while self._running:
             raw_data = self.ser.read(self.ser.in_waiting or 1)
             if raw_data:
-                self.buffer.extend(raw_data)
+                self._write_to_buffer(raw_data)
                 self._process_buffer()
 
+    def _write_to_buffer(self, data: bytes):
+        data_len = len(data)
+        free_space = self.capacity - self.buf_len
+        if data_len > free_space:
+            # Ako nema dovoljno mesta, premeštamo preostale bajtove na početak
+            if self.buf_len > 0:
+                self.buffer[:self.buf_len] = self.buffer[self.capacity - self.buf_len:self.capacity]
+            free_space = self.capacity - self.buf_len
+            if data_len > free_space:
+                data = data[:free_space]
+                data_len = len(data)
+        self.buffer[self.buf_len:self.buf_len+data_len] = data
+        self.buf_len += data_len
+
     def _process_buffer(self):
-        while True:
-            sync_index = self.buffer.find(self.sync_byte)
-            if sync_index == -1:
-                break  # Nije pronađen SYNC, čekaj
-
-            if len(self.buffer) >= sync_index + 1 + self.raw_data_length:
-                # Ima dovoljno za ceo paket (SYNC_BYTE + raw_data_length bajtova)
-                packet = self.buffer[sync_index + 1 : sync_index + 1 + self.raw_data_length]
-                if self.packet_callback:
-                    self.packet_callback(packet)  # Callback sa primljenim paketom
-
-                # Odbaci obrađene bajtove
-                self.buffer = self.buffer[sync_index + 1 + self.raw_data_length :]
+        packet_length = 1 + self.raw_data_length
+        i = 0
+        while i < self.buf_len:
+            if self.buffer[i] == self.sync_byte[0]:
+                if self.buf_len - i >= packet_length:
+                    packet_view = memoryview(self.buffer)[i+1:i+packet_length]
+                    if self.packet_callback:
+                        self.packet_callback(packet_view)
+                    i += packet_length
+                    continue
+                else:
+                    break
             else:
-                break  # Nema celog paketa, čekaj
+                i += 1
+        if i > 0:
+            remaining = self.buf_len - i
+            self.buffer[:remaining] = self.buffer[i:self.buf_len]
+            self.buf_len = remaining
