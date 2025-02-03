@@ -1,5 +1,4 @@
 from machine import Pin, SoftI2C
-import micropython, gc
 
 class MPU:
     ADDRESS = 0x68
@@ -40,8 +39,5 @@ class MPU:
         self.i2c.stop()
 
     def handle_interrupt(self, pin):
-        micropython.alloc_emergency_exception_buf(100)  # Omogući hitne izuzetke
-        gc.disable()  # Onemogući GC tokom prekida
         raw = self.i2c.readfrom_mem(self.ADDRESS, self.ACCEL_XOUT0, 14)
         self.interrupt_handler(raw)
-        gc.enable()  # Ponovo omogući GC
