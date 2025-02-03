@@ -12,7 +12,8 @@ pygame.init()
 WIDTH, HEIGHT = 800, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("IMUESP32PY")
-font = pygame.font.Font(None, 26)
+font = pygame.font.Font(None, 36)
+font2 = pygame.font.Font(None, 18)
 running = True
 global processor
 
@@ -66,10 +67,6 @@ def rdata(packet: bytes):
     screen.fill((20, 20, 20))
 
     # legenda
-    text = font.render("Accel", True, (255, 255, 255))
-    screen.blit(text, ((10 ) // 2, 35))
-    text = font.render("Gyro", True, (255, 255, 255))
-    screen.blit(text, ((10 ) // 2, 335))
     text = font.render("X", True, (255, 0, 0))
     screen.blit(text, ((1500) // 2, 5))
     text = font.render("Y", True, (0, 255, 0))
@@ -87,6 +84,20 @@ def rdata(packet: bytes):
     pygame.draw.lines(screen, (100,100,100), False, [[0,HEIGHT/4*3-gyro_scale*250],[WIDTH,HEIGHT/4*3-gyro_scale*250]], 2)
     pygame.draw.lines(screen, (100,100,100), False, [[0,HEIGHT/4*3+gyro_scale*250],[WIDTH,HEIGHT/4*3+gyro_scale*250]], 2)
 
+    text = font.render("Accel", True, (255, 255, 255))
+    screen.blit(text, ((10 ) // 2, 15))
+    text = font.render("Gyro", True, (255, 255, 255))
+    screen.blit(text, ((10 ) // 2, 315))
+
+    text = font2.render("+1g", True, (255, 255, 100))
+    screen.blit(text, ((10 ) // 2, 94))
+    text = font2.render("-1g", True, (255, 255, 100))
+    screen.blit(text, ((10 ) // 2, 194))
+
+    text = font2.render("+250dps", True, (255, 255, 100))
+    screen.blit(text, ((10 ) // 2, 45+HEIGHT/2))
+    text = font2.render("-250dps", True, (255, 255, 100))
+    screen.blit(text, ((10 ) // 2, 244+HEIGHT/2))
 
     x_spacing = WIDTH / (MAX_BUFFER_LENGTH - 1)
     
